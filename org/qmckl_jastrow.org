@@ -1712,7 +1712,7 @@ end function qmckl_compute_factor_ee_f
 	  const double* asymp_jasb,
 	  double* const factor_ee ) {
 
-  int ipar; // can we use a smaller integer?
+  int ipar; 
   double pow_ser, x, x1, spin_fact, power_ser;
 
   if (context == QMCKL_NULL_CONTEXT) { 
@@ -2079,7 +2079,7 @@ qmckl_exit_code qmckl_compute_factor_ee_deriv_e (
 	  const double* asymp_jasb,
 	  double* const factor_ee_deriv_e ) {
 
-  int ipar;
+  int ipar, ii;
   double pow_ser_g[3];
   double dx[4];
   double x, spin_fact, y;
@@ -2102,15 +2102,25 @@ qmckl_exit_code qmckl_compute_factor_ee_deriv_e (
     return QMCKL_INVALID_ARG_4;
   }
 
-  factor_ee_deriv_e = 0.0;
+  for (int nw = 0; nw < walk_num; ++nw) {
+    for (int ii = 0; ii < 4; ++ii) {
+      for (int j = 0; j < elec_num; ++j) {
+        factor_ee_deriv_e[j * (walk_num * 4) + ii * (walk_num) + nw]  = 0.0;
+      }
+    }
+  }
+
+  for (int ii = 0; ii < 4; ++ii){
+    pow_ser_g[ii] = 0.0;
+  }    
+
   third = 1.0 / 3.0;
 
   for (int nw = 0; nw < walk_num; ++nw) {
-    for (int j = 0; j < elec_num; ++j) {
-      for (int i = 0; i < elec_num; ++i) {
-        x = ee_distance_rescaled[i,j,nw];
+    for (int i = 0; i < elec_num; ++i) {
+      for (int j = 0; j < elec_num; ++j) {
+        x = ee_distance_rescaled[j * (walk_num * elec_num) + i * (walk_num) + nw];
         if (fabs(x) < 1.0e-18) continue;
-        pow_ser_g   = 0.0;
         spin_fact   = 1.0;
         den         = 1.0 + bord_vector[1] * x;
         invden      = 1.0 / den;
@@ -2119,13 +2129,20 @@ qmckl_exit_code qmckl_compute_factor_ee_deriv_e (
         xinv        = 1.0 / (x + 1.0e-18);
         ipar        = 0;
 
-        dx[0] = ee_distance_rescaled_deriv_e[0, i, j, nw];
-        dx[1] = ee_distance_rescaled_deriv_e[1, i, j, nw];
-        dx[2] = ee_distance_rescaled_deriv_e[2, i, j, nw];
-        dx[3] = ee_distance_rescaled_deriv_e[3, i, j, nw];  
+        dx[0] = ee_distance_rescaled_deriv_e[0 \
+                                           + i * (walk_num * elec_num) \
+                                           + j * elec_num + nw];
+        dx[1] = ee_distance_rescaled_deriv_e[1 * (walk_num * elec_num * elec_num) \
+                                           + i * (walk_num * elec_num) \
+                                           + j * elec_num + nw];
+        dx[2] = ee_distance_rescaled_deriv_e[2 * (walk_num * elec_num * elec_num) \
+                                           + i * (walk_num * elec_num) \
+                                           + j * elec_num + nw];
+        dx[3] = ee_distance_rescaled_deriv_e[3 * (walk_num * elec_num * elec_num) \
+                                           + i * (walk_num * elec_num) \
+                                           + j * elec_num + nw];  
 
-        if((i .LE. up_num .AND. j .LE. up_num ) .OR.  &
-           (i .GT. up_num .AND. j .GT. up_num)) {
+        if((i < up_num && j < up_num ) || (i > (up_num-1) || j > (up_num-1))) {
           spin_fact = 0.5;
         }
 
@@ -2133,27 +2150,28 @@ qmckl_exit_code qmckl_compute_factor_ee_deriv_e (
         lap2 = 0.0;
         lap3 = 0.0;
         for (int ii = 0; ii < 3; ++ii) {
-          x = ee_distance_rescaled(i, j, nw);
+          x = ee_distance_rescaled[j * (walk_num * elec_num) + i * (walk_num) + nw];
           if (fabs(x) < 1.0e-18) continue;
           for (int p = 1; p < bord_num; ++p) {
             y = p * bord_vector[p + 1] * x;
-            pow_ser_g(ii) = pow_ser_g(ii) + y * dx(ii);
-            lap1 = lap1 + (p - 1) * y * xinv * dx(ii) * dx(ii);
+            pow_ser_g[ii] = pow_ser_g[ii] + y * dx[ii];
+            lap1 = lap1 + (p - 1) * y * xinv * dx[ii] * dx[ii];
             lap2 = lap2 + y;
-            x = x * ee_distance_rescaled(i, j, nw);
+            x = x * ee_distance_rescaled[j * (walk_num * elec_num) + i * (walk_num) + nw];
           }
 
-          lap3 = lap3 - 2.0d0 * bord_vector(2) * dx(ii) * dx(ii);
+          lap3 = lap3 - 2.0 * bord_vector[1] * dx[ii] * dx[ii];
 
-          factor_ee_deriv_e( j, ii, nw) = factor_ee_deriv_e( j, ii, nw) + spin_fact * bord_vector(1)  * &
-                                dx(ii) * invden2 + pow_ser_g(ii)
+          factor_ee_deriv_e[j * (walk_num * 4) + ii * (walk_num) + nw] +=              \
+                                       + spin_fact * bord_vector[0] * dx[ii] * invden2 \
+                                       + pow_ser_g[ii] ;
         }
 
-        ii = 4
-        lap2 = lap2 * dx(ii) * third
-        lap3 = lap3 + den * dx(ii)
-        lap3 = lap3 * (spin_fact * bord_vector(1) * invden3)
-        factor_ee_deriv_e( j, ii, nw) = factor_ee_deriv_e( j, ii, nw) + lap1 + lap2 + lap3
+        ii = 3;
+        lap2 = lap2 * dx[ii] * third;
+        lap3 = lap3 + den * dx[ii];
+        lap3 = lap3 * (spin_fact * bord_vector[0] * invden3);
+        factor_ee_deriv_e[j * (walk_num * 4) + ii * (walk_num) + nw] += + lap1 + lap2 + lap3;
 
       }
     }
