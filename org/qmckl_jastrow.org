@@ -1070,7 +1070,6 @@ const double*   nucl_charge   = n2_charge;
 int64_t  nucl_num      = n2_nucl_num;
 double*  nucl_coord    = &(n2_nucl_coord[0][0]);
 
-/* Provide Electron data */
 
 qmckl_exit_code rc;
 
@@ -2142,7 +2141,7 @@ qmckl_exit_code qmckl_compute_factor_ee_deriv_e (
                                            + i * (walk_num * elec_num) \
                                            + j * elec_num + nw];  
 
-        if((i < up_num && j < up_num ) || (i > (up_num-1) || j > (up_num-1))) {
+        if((i <= (up_num-1) && j <= (up_num-1) ) || (i > (up_num-1) || j > (up_num-1))) {
           spin_fact = 0.5;
         }
 
