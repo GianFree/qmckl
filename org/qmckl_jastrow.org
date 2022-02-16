@@ -3181,6 +3181,107 @@ integer function qmckl_compute_een_rescaled_e_f(context, walk_num, elec_num, cor
 end function qmckl_compute_een_rescaled_e_f
     #+end_src
 
+    #+begin_src c :comments org :tangle (eval c) :noweb yes
+qmckl_exit_code qmckl_compute_een_rescaled_e (
+	  const qmckl_context context,
+	  const int64_t walk_num,
+	  const int64_t elec_num,
+	  const int64_t cord_num,
+	  const double rescale_factor_kappa_ee,
+	  const double* ee_distance,
+	  double* const een_rescaled_e ) {
+
+//  
+  double*  een_rescaled_e_ij; 
+  double   x;
+  int      i, j, k, l, nw, len_een_ij; 
+  
+  // number of element for the een_rescaled_e_ij[N_e*(N_e-1)/2][cord+1]
+  // probably in C is better [cord+1, Ne*(Ne-1)/2]
+  len_een_ij = elec_num * (elec_num - 1) / 2 * (cord_num + 1);
+  een_rescaled_e_ij = (double *) malloc(sizeof(double) * len_een_ij);
+
+  if (context == QMCKL_NULL_CONTEXT) {
+     return QMCKL_INVALID_CONTEXT;
+
+  if (walk_num <= 0) {
+     return QMCKL_INVALID_ARG_2;
+  }
+
+  if (elec_num <= 0) {
+     return QMCKL_INVALID_ARG_3;
+  }
+
+  if (cord_num <= 0) {
+     return QMCKL_INVALID_ARG_4;
+  }
+
+  // Prepare table of exponentiated distances raised to appropriate power
+  // init 
+  for (int nw = 0; nw < walk_num; ++nw) {
+    for (int l = 0; l < (cord_num + 1); ++l) {
+      for (int i = 0; i < elec_num; ++i) {
+        for (int j = 0; j < elec_num; ++j) {
+          een_rescaled_e[j + i*elec_num + l*elec_num*elec_num + nw*(cord_num+1)*elec_num*elec_num]
+        }
+      }
+    }
+  }
+
+  for (int nw = 0; nw < walk_num; ++nw) {
+    
+    for (int kk = 0; kk < len_een_ij; ++kk) {
+      // this array initialized at 0 except een_rescaled_e_ij(:, 1) = 1.0d0
+      // and the arrangement of indices is [cord_num+1, ne*(ne-1)/2]
+      een_rescaled_e_ij[kk]= ( kk < (elec_num*(elec_num-1)/2) ? 1.0 : 0.0 );
+    }
+
+    k = 0; 
+    for (int i = 0; i < elec_num; ++i) {
+      for (int j = 0; j < i-1; ++j) {
+    do j = 1, elec_num
+    do i = 1, j - 1
+      k = k + 1;
+      // een_rescaled_e_ij(k, 2) = dexp(-rescale_factor_kappa_ee * ee_distance(i, j, nw));
+      een_rescaled_e_ij[k + elec_num*(elec_num-1)/2] = exp(-rescale_factor_kappa_ee * \
+                                                            ee_distance[i, j, nw]);
+      }
+    }
+
+  do l = 2, cord_num
+    do k = 1, elec_num * (elec_num - 1)/2
+      een_rescaled_e_ij(k, l + 1) = een_rescaled_e_ij(k, l + 1 - 1) * een_rescaled_e_ij(k, 2)
+    end do
+  end do
+
+  ! prepare the actual een table
+  een_rescaled_e(:, :, 0, nw) = 1.0d0
+  do l = 1, cord_num
+    k = 0
+    do j = 1, elec_num
+      do i = 1, j - 1
+        k = k + 1
+        x = een_rescaled_e_ij(k, l + 1)
+        een_rescaled_e(i, j, l, nw) = x
+        een_rescaled_e(j, i, l, nw) = x
+      end do
+    end do
+  end do
+
+  do l = 0, cord_num
+    do j = 1, elec_num
+      een_rescaled_e(j, j, l, nw) = 0.0d0
+    end do
+  end do
+
+  end do
+
+  free(een_rescaled_e_ij);
+  
+  return QMCKL_SUCCESS;
+}
+    #+end_src
+
     #+CALL: generate_c_header(table=qmckl_factor_een_rescaled_e_args,rettyp=get_value("CRetType"),fname=get_value("Name"))
 
     #+RESULTS:
