@@ -5454,6 +5454,7 @@ rc = qmckl_get_jastrow_dtmp_c(context, &(dtmp_c[0][0][0][0][0][0]));
 
 assert(fabs(tmp_c[0][0][1][0][0] - 2.7083473948352403) < 1e-12);
 
+printf("bubu %.19f", dtmp_c[0][1][0][0][0][0]);
 assert(fabs(dtmp_c[0][1][0][0][0][0] - 0.237440520852232) < 1e-12);
      #+end_src
 
