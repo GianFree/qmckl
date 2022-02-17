@@ -3193,15 +3193,15 @@ qmckl_exit_code qmckl_compute_een_rescaled_e (
 	  double* const een_rescaled_e ) {
 
 //  
-  double*  een_rescaled_e_ij; 
+  double   *een_rescaled_e_ij; 
   double   x;
   int      elec_pairs, len_een_ij, k; 
   
   // number of element for the een_rescaled_e_ij[N_e*(N_e-1)/2][cord+1]
   // probably in C is better [cord+1, Ne*(Ne-1)/2]
-  elec_pairs = elec_num * (elec_num - 1) / 2;
+  elec_pairs = (elec_num * (elec_num - 1)) / 2;
   len_een_ij = elec_pairs * (cord_num + 1);
-  een_rescaled_e_ij = (double *) malloc(sizeof(double) * len_een_ij);
+  een_rescaled_e_ij = (double *) malloc (len_een_ij * sizeof(double));
 
   if (context == QMCKL_NULL_CONTEXT) {
      return QMCKL_INVALID_CONTEXT;
@@ -3249,17 +3249,17 @@ qmckl_exit_code qmckl_compute_een_rescaled_e (
     k = 0; 
     for (int i = 0; i < elec_num; ++i) {
       for (int j = 0; j < i-1; ++j) {
-        k = k + 1;
         // een_rescaled_e_ij(k, 2) = dexp(-rescale_factor_kappa_ee * ee_distance(i, j, nw));
         een_rescaled_e_ij[k + elec_pairs] = exp(-rescale_factor_kappa_ee * \
                                                  ee_distance[j + i*elec_num + nw*(elec_num*elec_num)]);
+        k = k + 1;
       }
     }
 
-    for (int l = 1; l < (cord_num+1); ++l) {
+    for (int l = 2; l < (cord_num+1); ++l) {
       for (int k = 0; k < elec_pairs; ++k) {
       // een_rescaled_e_ij(k, l + 1) = een_rescaled_e_ij(k, l + 1 - 1) * een_rescaled_e_ij(k, 2)
-        een_rescaled_e_ij[k+(l + 1)*elec_pairs] = een_rescaled_e_ij[k + (l + 1 - 1)*elec_pairs] * \
+        een_rescaled_e_ij[k+l*elec_pairs] = een_rescaled_e_ij[k + (l - 1)*elec_pairs] * \
                                                   een_rescaled_e_ij[k + elec_pairs];
       }
     }
@@ -3271,14 +3271,14 @@ qmckl_exit_code qmckl_compute_een_rescaled_e (
     }
   }
   
-  for ( int l = 0; l < (cord_num+1); ++l) {
+  for ( int l = 1; l < (cord_num+1); ++l) {
     k = 0;
     for (int i = 0; i < elec_num; ++i) {
       for (int j = 0; j < (i-1); ++j) {
-        k = k + 1;
-        x = een_rescaled_e_ij[k + (l + 1)*elec_pairs];
+        x = een_rescaled_e_ij[k + l*elec_pairs];
         een_rescaled_e[j + i*elec_num + l*elec_num*elec_num + nw*elec_num*elec_num*(cord_num+1)] = x;
         een_rescaled_e[i + j*elec_num + l*elec_num*elec_num + nw*elec_num*elec_num*(cord_num+1)] = x;
+        k = k + 1;
       }
     }
   }
@@ -3381,6 +3381,7 @@ size_max=0;
 rc = qmckl_get_jastrow_een_rescaled_e(context, &(een_rescaled_e[0][0][0][0]),&size_max);
 
 // value of (0,2,1)
+printf("%.19f", een_rescaled_e[0][1][0][2]);
 assert(fabs(een_rescaled_e[0][1][0][2]-0.08084493981483197)   < 1.e-12);
 assert(fabs(een_rescaled_e[0][1][0][3]-0.1066745707571846)    < 1.e-12);
 assert(fabs(een_rescaled_e[0][1][0][4]-0.01754273169464735)   < 1.e-12);
