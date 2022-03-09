@@ -5100,12 +5100,11 @@ qmckl_exit_code qmckl_compute_cord_vect_full (
      return QMCKL_INVALID_ARG_5;
   }
 
-  printf("%d\n", dim_cord_vect);
   for (int a=0; a < nucl_num; ++a){
-    printf("ciao\n");
     for (int i=0; i < dim_cord_vect; ++i) {
-      printf("i\t%d a\t%d cv\t%f\n",i,a,cord_vector[i+a*dim_cord_vect]);
-      cord_vect_full[i+a*dim_cord_vect] = cord_vector[i+type_nucl_vector[a]*dim_cord_vect];
+//      printf("i\t%d a\t%d cv\t%.14f\n",i,a, cord_vector[i+(type_nucl_vector[a]-1)*dim_cord_vect]);
+      cord_vect_full[i+a*dim_cord_vect] = cord_vector[i+(type_nucl_vector[a]-1)*dim_cord_vect];
+      printf("i\t%d a\t%d cv\t%.14f\n",i,a, cord_vect_full[i+a*dim_cord_vect]);
     }
   }
 
@@ -6071,7 +6070,7 @@ assert(qmckl_jastrow_provided(context));
 double factor_een[walk_num];
 rc = qmckl_get_jastrow_factor_een(context, &(factor_een[0]),walk_num);
 
-assert(fabs(factor_een[0] + 0.37407972141304213) < 1e-12);
+assert(fabs(factor_een[0] + 0.37407972141304213) < 1e-10);
      #+end_src
 
 ** Electron-electron-nucleus Jastrow \(f_{een}\) derivative
