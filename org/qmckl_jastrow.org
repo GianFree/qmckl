@@ -5074,6 +5074,46 @@ integer function qmckl_compute_cord_vect_full_f(context, nucl_num, dim_cord_vect
 end function qmckl_compute_cord_vect_full_f
     #+end_src
 
+    #+begin_src c :comments org :tangle (eval c) :noweb yes
+qmckl_exit_code qmckl_compute_cord_vect_full (
+	  const qmckl_context context,
+	  const int64_t nucl_num,
+	  const int64_t dim_cord_vect,
+	  const int64_t type_nucl_num,
+	  const int64_t* type_nucl_vector,
+	  const double* cord_vector,
+	  double* const cord_vect_full ) { 
+
+  if (context == QMCKL_NULL_CONTEXT) {
+     return QMCKL_INVALID_CONTEXT;
+  }
+
+  if (nucl_num <= 0) {
+     return QMCKL_INVALID_ARG_2;
+  }
+
+  if (type_nucl_num <= 0) {
+     return QMCKL_INVALID_ARG_4;
+  }
+
+  if (dim_cord_vect <= 0) {
+     return QMCKL_INVALID_ARG_5;
+  }
+
+  printf("%d\n", dim_cord_vect);
+  for (int a=0; a < nucl_num; ++a){
+    printf("ciao\n");
+    for (int i=0; i < dim_cord_vect; ++i) {
+      printf("i\t%d a\t%d cv\t%f\n",i,a,cord_vector[i+a*dim_cord_vect]);
+      cord_vect_full[i+a*dim_cord_vect] = cord_vector[i+type_nucl_vector[a]*dim_cord_vect];
+    }
+  }
+
+  return QMCKL_SUCCESS;
+}
+    #+end_src
+
+  
     #+CALL: generate_c_header(table=qmckl_factor_cord_vect_full_args,rettyp=get_value("CRetType"),fname=get_value("Name"))
 
     #+RESULTS:
@@ -5088,32 +5128,6 @@ end function qmckl_compute_cord_vect_full_f
 	  double* const cord_vect_full );
     #+end_src
 
-
-    #+CALL: generate_c_interface(table=qmckl_factor_cord_vect_full_args,rettyp=get_value("CRetType"),fname=get_value("Name"))
-
-    #+RESULTS:
-    #+begin_src f90 :tangle (eval f) :comments org :exports none
-    integer(c_int32_t) function qmckl_compute_cord_vect_full &
-	(context, nucl_num, dim_cord_vect, type_nucl_num, type_nucl_vector, cord_vector, cord_vect_full) &
-	bind(C) result(info)
-
-      use, intrinsic :: iso_c_binding
-      implicit none
-
-      integer (c_int64_t) , intent(in)  , value :: context
-      integer (c_int64_t) , intent(in)  , value :: nucl_num
-      integer (c_int64_t) , intent(in)  , value :: dim_cord_vect
-      integer (c_int64_t) , intent(in)  , value :: type_nucl_num
-      integer (c_int64_t) , intent(in)          :: type_nucl_vector(nucl_num)
-      real    (c_double ) , intent(in)          :: cord_vector(type_nucl_num,dim_cord_vect)
-      real    (c_double ) , intent(out)         :: cord_vect_full(nucl_num,dim_cord_vect)
-
-      integer(c_int32_t), external :: qmckl_compute_cord_vect_full_f
-      info = qmckl_compute_cord_vect_full_f &
-	     (context, nucl_num, dim_cord_vect, type_nucl_num, type_nucl_vector, cord_vector, cord_vect_full)
-
-    end function qmckl_compute_cord_vect_full
-    #+end_src
 
 *** Compute lkpm_combined_index
    :PROPERTIES:
