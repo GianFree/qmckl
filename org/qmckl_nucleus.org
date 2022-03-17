@@ -187,6 +187,19 @@ qmckl_get_nucleus_num (const qmckl_context context, int64_t* const num) {
 }
    #+end_src
 
+    #+begin_src f90 :tangle (eval fh_func) :comments org :exports none
+interface
+  integer(c_int32_t) function qmckl_get_nucleus_num(context, num) &
+    bind(C)
+    use, intrinsic :: iso_c_binding
+    import
+    implicit none
+    integer (c_int64_t) , intent(in)  , value :: context
+    integer (c_int64_t) , intent(out)         :: num
+  end function qmckl_get_nucleus_num
+end interface
+    #+end_src
+
 
    #+begin_src c :comments org :tangle (eval h_func) :exports none
 qmckl_exit_code
@@ -242,6 +255,20 @@ qmckl_get_nucleus_charge (const qmckl_context context,
 
    #+end_src
 
+    #+begin_src f90 :tangle (eval fh_func) :comments org :exports none
+interface
+  integer(c_int32_t) function qmckl_get_nucleus_charge(context, charge, size_max) &
+    bind(C)
+    use, intrinsic :: iso_c_binding
+    import
+    implicit none
+    integer (c_int64_t) , intent(in)  , value :: context
+    real    (c_double)  , intent(out)         :: charge(*)
+    integer (c_int64_t) , intent(in)  , value :: size_max
+  end function qmckl_get_nucleus_charge
+end interface
+    #+end_src
+
 
    #+begin_src c :comments org :tangle (eval h_func) :exports none
 qmckl_exit_code
@@ -277,6 +304,18 @@ qmckl_get_nucleus_rescale_factor (const qmckl_context context,
 }
    #+end_src
 
+    #+begin_src f90 :tangle (eval fh_func) :comments org :exports none
+interface
+  integer(c_int32_t) function qmckl_get_nucleus_rescale_factor(context, kappa) &
+    bind(C)
+    use, intrinsic :: iso_c_binding
+    import
+    implicit none
+    integer (c_int64_t) , intent(in)  , value :: context
+    real    (c_double)  , intent(out)         :: kappa
+  end function qmckl_get_nucleus_rescale_factor
+end interface
+    #+end_src
 
    #+begin_src c :comments org :tangle (eval h_func) :exports none
 qmckl_exit_code
@@ -333,7 +372,7 @@ qmckl_get_nucleus_coord (const qmckl_context context,
     rc = qmckl_transpose(context, ctx->nucleus.coord, At);
     if (rc != QMCKL_SUCCESS) return rc;
     rc = qmckl_double_of_matrix(context, At, coord, size_max);
-    qmckl_matrix_free(context, At);
+    qmckl_matrix_free(context, &At);
   } else {
     rc = qmckl_double_of_matrix(context, ctx->nucleus.coord, coord, size_max);
   }
@@ -341,6 +380,21 @@ qmckl_get_nucleus_coord (const qmckl_context context,
   return rc;
 }
    #+end_src
+
+    #+begin_src f90 :tangle (eval fh_func) :comments org :exports none
+interface
+  integer(c_int32_t) function qmckl_get_nucleus_coord(context, transp, coord, size_max) &
+    bind(C)
+    use, intrinsic :: iso_c_binding
+    import
+    implicit none
+    integer (c_int64_t) , intent(in)  , value :: context
+    character(c_char)   , intent(in)  , value :: transp
+    real    (c_double)  , intent(out)         :: coord(*)
+    integer (c_int64_t) , intent(in)  , value :: size_max
+  end function qmckl_get_nucleus_coord
+end interface
+    #+end_src
 
    When all the data relative to nuclei have been set, the following
    function returns ~true~.
@@ -424,7 +478,7 @@ interface
     implicit none
     integer (c_int64_t) , intent(in)  , value :: context
     integer (c_int64_t) , intent(in)  , value :: num
-  end function
+  end function qmckl_set_nucleus_num
 end interface
     #+end_src
 
@@ -470,6 +524,12 @@ qmckl_set_nucleus_charge(qmckl_context context,
 
   ctx->nucleus.charge = qmckl_vector_alloc(context, num);
   rc = qmckl_vector_of_double(context, charge, num, &(ctx->nucleus.charge));
+  if (rc != QMCKL_SUCCESS) {
+    return qmckl_failwith( context,
+                           QMCKL_FAILURE,
+                           "qmckl_set_nucleus_charge",
+                           "Error in vector->double* conversion");
+  }
 
   <<post2>>
 }
@@ -518,7 +578,7 @@ qmckl_set_nucleus_coord(qmckl_context context,
   const int64_t nucl_num = (int64_t) ctx->nucleus.num;
 
   if (ctx->nucleus.coord.data != NULL) {
-    rc = qmckl_matrix_free(context, ctx->nucleus.coord);
+    rc = qmckl_matrix_free(context, &(ctx->nucleus.coord));
     if (rc != QMCKL_SUCCESS) return rc;
   }
 
@@ -564,7 +624,7 @@ interface
     character(c_char)   , intent(in)  , value :: transp
     real    (c_double)  , intent(in)          :: coord(*)
     integer (c_int64_t) , intent(in)  , value :: size_max
-  end function
+  end function qmckl_set_nucleus_coord
 end interface
     #+end_src
 
@@ -598,14 +658,14 @@ qmckl_set_nucleus_rescale_factor(qmckl_context context,
 
     #+begin_src f90 :tangle (eval fh_func) :comments org :exports none
 interface
-  integer(c_int32_t) function qmckl_set_rescale_factor(context, kappa) &
+  integer(c_int32_t) function qmckl_set_nucleus_rescale_factor(context, kappa) &
     bind(C)
     use, intrinsic :: iso_c_binding
     import
     implicit none
     integer (c_int64_t) , intent(in)  , value :: context
     real    (c_double)  , intent(in)  , value :: kappa
-  end function
+  end function qmckl_set_nucleus_rescale_factor
 end interface
     #+end_src
 
@@ -662,14 +722,14 @@ assert(!qmckl_nucleus_provided(context));
 rc = qmckl_get_nucleus_coord (context, 'N', nucl_coord2, 3*nucl_num);
 assert(rc == QMCKL_SUCCESS);
 for (size_t k=0 ; k<3 ; ++k) {
-  for (size_t i=0 ; i<nucl_num ; ++i) {
+  for (int64_t i=0 ; i<nucl_num ; ++i) {
     assert( nucl_coord[nucl_num*k+i] == nucl_coord2[3*i+k] );
   }
 }
 
 rc = qmckl_get_nucleus_coord (context, 'T', nucl_coord2, 3*nucl_num);
 assert(rc == QMCKL_SUCCESS);
-for (size_t i=0 ; i<3*nucl_num ; ++i) {
+for (int64_t i=0 ; i<3*nucl_num ; ++i) {
   assert( nucl_coord[i] == nucl_coord2[i] );
 }
 
@@ -683,7 +743,7 @@ assert(rc == QMCKL_SUCCESS);
 
 rc = qmckl_get_nucleus_charge(context, nucl_charge2, nucl_num);
 assert(rc == QMCKL_SUCCESS);
-for (size_t i=0 ; i<nucl_num ; ++i) {
+for (int64_t i=0 ; i<nucl_num ; ++i) {
   assert( nucl_charge[i] == nucl_charge2[i] );
  }
 assert(qmckl_nucleus_provided(context));

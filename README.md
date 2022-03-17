@@ -36,15 +36,60 @@ make check
 
 ## For users
 
-Obtain a source distribution and run
+Obtain a source distribution.
+
+To build the documentation version:
 
 ```
-./configure 
-make
-make check
+./configure
+```
+
+To build an optimized version with Intel compilers:
+```
+./configure \
+   --with-icc \
+   --with-ifort \
+   --enable-hpc \
+   --with-openmp
+```
+
+To build an optimized version with GCC:
+```
+./configure \
+  CC=gcc \
+  CFLAGS="-g -O2 -march=native  -flto -fno-trapping-math -fno-math-errno -ftree-vectorize" \
+  FC=gfortran \
+  FCFLAGS="-g -O2 -march=native  -flto -ftree-vectorize" \
+  --enable-hpc \
+  --with-openmp
+```
+
+
+Then, compile with:
+```
+make -j
+make -j check
 sudo make install
 sudo make installcheck
 ```
+
+
+## Linking to your program
+
+The `make install` command takes care of installing the QMCkl shared library on the user machine.
+Once installed, add `-lqmckl` to the list of compiler options.
+
+In some cases (e.g. when using custom `prefix` during configuration), the QMCkl library might end up installed in a directory, which is absent in the default `$LIBRARY_PATH`.
+In order to link the program against QMCkl, the search paths can be modified as follows:
+
+`export LIBRARY_PATH=$LIBRARY_PATH:<path_to_qmckl>/lib`
+
+(same holds for `$LD_LIBRARY_PATH`). The `<path_to_qmckl>` has to be replaced with the prefix used during the installation.
+
+If your project relies on the CMake build system, feel free to use the
+[FindQMCKL.cmake](https://github.com/TREX-CoE/qmckl/blob/master/cmake/FindQMCKL.cmake)
+module to find and link the QMCkl library automatically.
+
 
 ## Verificarlo CI
 
@@ -54,7 +99,12 @@ by the preprocessor otherwise). To enable vfc_ci support, the library should be
 configured with the following command :
 
 ```
-./configure --prefix=$PWD/_install \ --enable-vfc_ci --host=x86_64 \ CC="verificarlo-f" FC="verificarlo-f"
+./configure \
+  CC="verificarlo-f" \
+  FC="verificarlo-f" \
+  --prefix=$PWD/_install \
+  --enable-vfc_ci \
+  --host=x86_64 \
 ```
 
 where CC and FC are set to verificarlo-f, and support is explicitely enabled
