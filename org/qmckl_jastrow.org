@@ -5102,9 +5102,7 @@ qmckl_exit_code qmckl_compute_cord_vect_full (
 
   for (int a=0; a < nucl_num; ++a){
     for (int i=0; i < dim_cord_vect; ++i) {
-//      printf("i\t%d a\t%d cv\t%.14f\n",i,a, cord_vector[i+(type_nucl_vector[a]-1)*dim_cord_vect]);
       cord_vect_full[i+a*dim_cord_vect] = cord_vector[i+(type_nucl_vector[a]-1)*dim_cord_vect];
-      printf("i\t%d a\t%d cv\t%.14f\n",i,a, cord_vect_full[i+a*dim_cord_vect]);
     }
   }
 
