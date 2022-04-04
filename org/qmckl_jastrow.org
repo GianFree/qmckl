@@ -3375,6 +3375,121 @@ integer function qmckl_compute_een_rescaled_e_f(context, walk_num, elec_num, cor
 end function qmckl_compute_een_rescaled_e_f
     #+end_src
 
+    #+begin_src c :comments org :tangle (eval c) :noweb yes
+qmckl_exit_code qmckl_compute_een_rescaled_e (
+	  const qmckl_context context,
+	  const int64_t walk_num,
+	  const int64_t elec_num,
+	  const int64_t cord_num,
+	  const double rescale_factor_kappa_ee,
+	  const double* ee_distance,
+	  double* const een_rescaled_e ) {
+
+//  
+  double   *een_rescaled_e_ij; 
+  double   x;
+  int      elec_pairs, len_een_ij, k; 
+  
+  // number of element for the een_rescaled_e_ij[N_e*(N_e-1)/2][cord+1]
+  // probably in C is better [cord+1, Ne*(Ne-1)/2]
+  elec_pairs = (elec_num * (elec_num - 1)) / 2;
+  len_een_ij = elec_pairs * (cord_num + 1);
+  een_rescaled_e_ij = (double *) malloc (len_een_ij * sizeof(double));
+
+  if (context == QMCKL_NULL_CONTEXT) {
+     return QMCKL_INVALID_CONTEXT;
+  } 
+
+  if (walk_num <= 0) {
+     return QMCKL_INVALID_ARG_2;
+  }
+
+  if (elec_num <= 0) {
+     return QMCKL_INVALID_ARG_3;
+  }
+
+  if (cord_num <= 0) {
+     return QMCKL_INVALID_ARG_4;
+  }
+
+  // Prepare table of exponentiated distances raised to appropriate power
+  // init 
+  
+  for (int kk = 0; kk < walk_num*(cord_num+1)*elec_num*elec_num; ++kk) {
+    een_rescaled_e[kk]= 0.0;
+  }
+
+  /*
+  for (int nw = 0; nw < walk_num; ++nw) {
+    for (int l = 0; l < (cord_num + 1); ++l) {
+      for (int i = 0; i < elec_num; ++i) {
+        for (int j = 0; j < elec_num; ++j) {
+          een_rescaled_e[j + i*elec_num + l*elec_num*elec_num + nw*(cord_num+1)*elec_num*elec_num]= 0.0;
+        }
+      }
+    }
+  }
+  */
+
+  for (int nw = 0; nw < walk_num; ++nw) {
+    
+    for (int kk = 0; kk < len_een_ij; ++kk) {
+      // this array initialized at 0 except een_rescaled_e_ij(:, 1) = 1.0d0
+      // and the arrangement of indices is [cord_num+1, ne*(ne-1)/2]
+      een_rescaled_e_ij[kk]= ( kk < (elec_pairs) ? 1.0 : 0.0 );
+    }
+
+    k = 0; 
+    for (int i = 0; i < elec_num; ++i) {
+      for (int j = 0; j < i-1; ++j) {
+        // een_rescaled_e_ij(k, 2) = dexp(-rescale_factor_kappa_ee * ee_distance(i, j, nw));
+        een_rescaled_e_ij[k + elec_pairs] = exp(-rescale_factor_kappa_ee * \
+                                                 ee_distance[j + i*elec_num + nw*(elec_num*elec_num)]);
+        k = k + 1;
+      }
+    }
+
+    for (int l = 2; l < (cord_num+1); ++l) {
+      for (int k = 0; k < elec_pairs; ++k) {
+      // een_rescaled_e_ij(k, l + 1) = een_rescaled_e_ij(k, l + 1 - 1) * een_rescaled_e_ij(k, 2)
+        een_rescaled_e_ij[k+l*elec_pairs] = een_rescaled_e_ij[k + (l - 1)*elec_pairs] * \
+                                                  een_rescaled_e_ij[k + elec_pairs];
+      }
+    }
+
+  // prepare the actual een table
+  for (int i = 0; i < elec_num; ++i){
+    for (int j = 0; j < elec_num; ++j) {
+      een_rescaled_e[j + i*elec_num + 0 + nw*(cord_num+1)*elec_num*elec_num] = 1.0;
+    }
+  }
+  
+  for ( int l = 1; l < (cord_num+1); ++l) {
+    k = 0;
+    for (int i = 0; i < elec_num; ++i) {
+      for (int j = 0; j < (i-1); ++j) {
+        x = een_rescaled_e_ij[k + l*elec_pairs];
+        een_rescaled_e[j + i*elec_num + l*elec_num*elec_num + nw*elec_num*elec_num*(cord_num+1)] = x;
+        een_rescaled_e[i + j*elec_num + l*elec_num*elec_num + nw*elec_num*elec_num*(cord_num+1)] = x;
+        k = k + 1;
+      }
+    }
+  }
+
+  for (int l = 0; l < (cord_num + 1); ++l) {
+    for (int j = 0; j < elec_num; j++) {
+      een_rescaled_e[j + j*elec_num + l*elec_num*elec_num + nw*elec_num*elec_num*(cord_num+1)] = 0.0;
+    }
+  }
+
+  }
+
+  free(een_rescaled_e_ij);
+  
+  return QMCKL_SUCCESS;
+}
+    #+end_src
+
     #+CALL: generate_c_header(table=qmckl_factor_een_rescaled_e_args,rettyp=get_value("CRetType"),fname=get_value("Name"))
 
     #+RESULTS:
@@ -3389,31 +3504,6 @@ end function qmckl_compute_een_rescaled_e_f
 	  double* const een_rescaled_e );
     #+end_src
 
-    #+CALL: generate_c_interface(table=qmckl_factor_een_rescaled_e_args,rettyp=get_value("CRetType"),fname=get_value("Name"))
-
-    #+RESULTS:
-    #+begin_src f90 :tangle (eval f) :comments org :exports none
-    integer(c_int32_t) function qmckl_compute_een_rescaled_e &
-	(context, walk_num, elec_num, cord_num, rescale_factor_kappa_ee, ee_distance, een_rescaled_e) &
-	bind(C) result(info)
-
-      use, intrinsic :: iso_c_binding
-      implicit none
-
-      integer (c_int64_t) , intent(in)  , value :: context
-      integer (c_int64_t) , intent(in)  , value :: walk_num
-      integer (c_int64_t) , intent(in)  , value :: elec_num
-      integer (c_int64_t) , intent(in)  , value :: cord_num
-      real    (c_double ) , intent(in)  , value :: rescale_factor_kappa_ee
-      real    (c_double ) , intent(in)          :: ee_distance(elec_num,elec_num,walk_num)
-      real    (c_double ) , intent(out)         :: een_rescaled_e(elec_num,elec_num,0:cord_num,walk_num)
-
-      integer(c_int32_t), external :: qmckl_compute_een_rescaled_e_f
-      info = qmckl_compute_een_rescaled_e_f &
-	     (context, walk_num, elec_num, cord_num, rescale_factor_kappa_ee, ee_distance, een_rescaled_e)
-
-    end function qmckl_compute_een_rescaled_e
-    #+end_src
 
 *** Test
 
@@ -3483,6 +3573,7 @@ double een_rescaled_e[walk_num][(cord_num + 1)][elec_num][elec_num];
 rc = qmckl_get_jastrow_een_rescaled_e(context, &(een_rescaled_e[0][0][0][0]),elec_num*elec_num*(cord_num+1)*walk_num);
 
 // value of (0,2,1)
+printf("%.19f", een_rescaled_e[0][1][0][2]);
 assert(fabs(een_rescaled_e[0][1][0][2]-0.08084493981483197)   < 1.e-12);
 assert(fabs(een_rescaled_e[0][1][0][3]-0.1066745707571846)    < 1.e-12);
 assert(fabs(een_rescaled_e[0][1][0][4]-0.01754273169464735)   < 1.e-12);
@@ -5142,6 +5233,43 @@ integer function qmckl_compute_cord_vect_full_f(context, nucl_num, dim_cord_vect
 end function qmckl_compute_cord_vect_full_f
     #+end_src
 
+    #+begin_src c :comments org :tangle (eval c) :noweb yes
+qmckl_exit_code qmckl_compute_cord_vect_full (
+	  const qmckl_context context,
+	  const int64_t nucl_num,
+	  const int64_t dim_cord_vect,
+	  const int64_t type_nucl_num,
+	  const int64_t* type_nucl_vector,
+	  const double* cord_vector,
+	  double* const cord_vect_full ) { 
+
+  if (context == QMCKL_NULL_CONTEXT) {
+     return QMCKL_INVALID_CONTEXT;
+  }
+
+  if (nucl_num <= 0) {
+     return QMCKL_INVALID_ARG_2;
+  }
+
+  if (type_nucl_num <= 0) {
+     return QMCKL_INVALID_ARG_4;
+  }
+
+  if (dim_cord_vect <= 0) {
+     return QMCKL_INVALID_ARG_5;
+  }
+
+  for (int a=0; a < nucl_num; ++a){
+    for (int i=0; i < dim_cord_vect; ++i) {
+      cord_vect_full[i+a*dim_cord_vect] = cord_vector[i+(type_nucl_vector[a]-1)*dim_cord_vect];
+    }
+  }
+
+  return QMCKL_SUCCESS;
+}
+    #+end_src
+
+  
     #+CALL: generate_c_header(table=qmckl_factor_cord_vect_full_args,rettyp=get_value("CRetType"),fname=get_value("Name"))
 
     #+RESULTS:
@@ -5156,32 +5284,6 @@ end function qmckl_compute_cord_vect_full_f
 	  double* const cord_vect_full );
     #+end_src
 
-
-    #+CALL: generate_c_interface(table=qmckl_factor_cord_vect_full_args,rettyp=get_value("CRetType"),fname=get_value("Name"))
-
-    #+RESULTS:
-    #+begin_src f90 :tangle (eval f) :comments org :exports none
-    integer(c_int32_t) function qmckl_compute_cord_vect_full &
-	(context, nucl_num, dim_cord_vect, type_nucl_num, type_nucl_vector, cord_vector, cord_vect_full) &
-	bind(C) result(info)
-
-      use, intrinsic :: iso_c_binding
-      implicit none
-
-      integer (c_int64_t) , intent(in)  , value :: context
-      integer (c_int64_t) , intent(in)  , value :: nucl_num
-      integer (c_int64_t) , intent(in)  , value :: dim_cord_vect
-      integer (c_int64_t) , intent(in)  , value :: type_nucl_num
-      integer (c_int64_t) , intent(in)          :: type_nucl_vector(nucl_num)
-      real    (c_double ) , intent(in)          :: cord_vector(type_nucl_num,dim_cord_vect)
-      real    (c_double ) , intent(out)         :: cord_vect_full(nucl_num,dim_cord_vect)
-
-      integer(c_int32_t), external :: qmckl_compute_cord_vect_full_f
-      info = qmckl_compute_cord_vect_full_f &
-	     (context, nucl_num, dim_cord_vect, type_nucl_num, type_nucl_vector, cord_vector, cord_vect_full)
-
-    end function qmckl_compute_cord_vect_full
-    #+end_src
 
 *** Compute lkpm_combined_index
    :PROPERTIES:
@@ -5728,6 +5830,7 @@ rc = qmckl_get_jastrow_dtmp_c(context, &(dtmp_c[0][0][0][0][0][0]));
 
 assert(fabs(tmp_c[0][0][1][0][0] - 2.7083473948352403) < 1e-12);
 
+printf("bubu %.19f", dtmp_c[0][1][0][0][0][0]);
 assert(fabs(dtmp_c[0][1][0][0][0][0] - 0.237440520852232) < 1e-12);
      #+end_src
 
@@ -6227,7 +6330,7 @@ assert(qmckl_jastrow_provided(context));
 double factor_een[walk_num];
 rc = qmckl_get_jastrow_factor_een(context, &(factor_een[0]),walk_num);
 
-assert(fabs(factor_een[0] + 0.37407972141304213) < 1e-12);
+assert(fabs(factor_een[0] + 0.37407972141304213) < 1e-10);
      #+end_src
 
 ** Electron-electron-nucleus Jastrow \(f_{een}\) derivative
