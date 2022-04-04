@@ -2200,22 +2200,21 @@ qmckl_exit_code qmckl_compute_factor_ee_deriv_e (
   for (int nw = 0; nw < walk_num; ++nw) {
     for (int ii = 0; ii < 4; ++ii) {
       for (int j = 0; j < elec_num; ++j) {
-        factor_ee_deriv_e[j * (walk_num * 4) + ii * (walk_num) + nw]  = 0.0;
+        factor_ee_deriv_e[j + ii * elec_num + nw * elec_num * 4]  = 0.0;
       }
     }
   }
-
-  for (int ii = 0; ii < 4; ++ii){
-    pow_ser_g[ii] = 0.0;
-  }    
 
   third = 1.0 / 3.0;
 
   for (int nw = 0; nw < walk_num; ++nw) {
     for (int i = 0; i < elec_num; ++i) {
       for (int j = 0; j < elec_num; ++j) {
-        x = ee_distance_rescaled[j * (walk_num * elec_num) + i * (walk_num) + nw];
+        x = ee_distance_rescaled[j + i * elec_num + nw * elec_num * elec_num];
         if (fabs(x) < 1.0e-18) continue;
+        for (int ii = 0; ii < 3; ++ii){
+            pow_ser_g[ii] = 0.0;
+        }    
         spin_fact   = 1.0;
         den         = 1.0 + bord_vector[1] * x;
         invden      = 1.0 / den;
@@ -2223,21 +2222,35 @@ qmckl_exit_code qmckl_compute_factor_ee_deriv_e (
         invden3     = invden2 * invden;
         xinv        = 1.0 / (x + 1.0e-18);
         ipar        = 0;
-
+        
+        dx[0] = ee_distance_rescaled_deriv_e[j + i * elec_num \
+                                           + 0                       \
+                                           + nw * elec_num * elec_num * 4];
+        dx[1] = ee_distance_rescaled_deriv_e[j + i * elec_num \
+                                           + 1 * elec_num * elec_num \
+                                           + nw * elec_num * elec_num * 4];
+        dx[2] = ee_distance_rescaled_deriv_e[j + i * elec_num \
+                                           + 2 * elec_num * elec_num \
+                                           + nw * elec_num * elec_num * 4];
+        dx[3] = ee_distance_rescaled_deriv_e[j + i * elec_num  \
+                                           + 3 * elec_num * elec_num \
+                                           + nw * elec_num * elec_num * 4];
+        /* TEST
         dx[0] = ee_distance_rescaled_deriv_e[0 \
-                                           + i * (walk_num * elec_num) \
-                                           + j * elec_num + nw];
-        dx[1] = ee_distance_rescaled_deriv_e[1 * (walk_num * elec_num * elec_num) \
-                                           + i * (walk_num * elec_num) \
-                                           + j * elec_num + nw];
+                                           + j * 4 + i * 4 * elec_num \
+                                           + nw * 4 * elec_num * elec_num];
+        dx[1] = ee_distance_rescaled_deriv_e[1  \
+                                           + j * 4 + i * 4 * elec_num \
+                                           + nw * 4 * elec_num * elec_num];
         dx[2] = ee_distance_rescaled_deriv_e[2 * (walk_num * elec_num * elec_num) \
-                                           + i * (walk_num * elec_num) \
-                                           + j * elec_num + nw];
+                                           + j * 4 + i * 4 * elec_num \
+                                           + nw * 4 * elec_num * elec_num];
         dx[3] = ee_distance_rescaled_deriv_e[3 * (walk_num * elec_num * elec_num) \
-                                           + i * (walk_num * elec_num) \
-                                           + j * elec_num + nw];  
+                                           + j * 4 + i * 4 * elec_num \
+                                           + nw * 4 * elec_num * elec_num];
+        */
 
-        if((i <= (up_num-1) && j <= (up_num-1) ) || (i > (up_num-1) || j > (up_num-1))) {
+        if((i <= (up_num-1) && j <= (up_num-1) ) || (i > (up_num-1) && j > (up_num-1))) {
           spin_fact = 0.5;
         }
 
@@ -2245,19 +2258,20 @@ qmckl_exit_code qmckl_compute_factor_ee_deriv_e (
         lap2 = 0.0;
         lap3 = 0.0;
         for (int ii = 0; ii < 3; ++ii) {
-          x = ee_distance_rescaled[j * (walk_num * elec_num) + i * (walk_num) + nw];
+          x = ee_distance_rescaled[j + i * elec_num + nw * elec_num * elec_num];
           if (fabs(x) < 1.0e-18) continue;
-          for (int p = 1; p < bord_num; ++p) {
-            y = p * bord_vector[p + 1] * x;
+          for (int p = 2; p < bord_num+1; ++p) {
+            y = p * bord_vector[(p-1) + 1] * x;
             pow_ser_g[ii] = pow_ser_g[ii] + y * dx[ii];
             lap1 = lap1 + (p - 1) * y * xinv * dx[ii] * dx[ii];
             lap2 = lap2 + y;
-            x = x * ee_distance_rescaled[j * (walk_num * elec_num) + i * (walk_num) + nw];
+            x = x * ee_distance_rescaled[j + i * elec_num + nw * elec_num * elec_num];
           }
 
           lap3 = lap3 - 2.0 * bord_vector[1] * dx[ii] * dx[ii];
 
-          factor_ee_deriv_e[j * (walk_num * 4) + ii * (walk_num) + nw] +=              \
+          // IS IT "J" or "I"? I would say "I"
+          factor_ee_deriv_e[i  + ii * elec_num * elec_num + nw * elec_num * elec_num * 4 ] +=              \
                                        + spin_fact * bord_vector[0] * dx[ii] * invden2 \
                                        + pow_ser_g[ii] ;
         }
@@ -2266,7 +2280,7 @@ qmckl_exit_code qmckl_compute_factor_ee_deriv_e (
         lap2 = lap2 * dx[ii] * third;
         lap3 = lap3 + den * dx[ii];
         lap3 = lap3 * (spin_fact * bord_vector[0] * invden3);
-        factor_ee_deriv_e[j * (walk_num * 4) + ii * (walk_num) + nw] += + lap1 + lap2 + lap3;
+        factor_ee_deriv_e[i + ii * elec_num *elec_num + nw * elec_num * elec_num * 4] += lap1 + lap2 + lap3;
 
       }
     }
@@ -2407,6 +2421,12 @@ double factor_ee_deriv_e[walk_num][4][elec_num];
 rc = qmckl_get_jastrow_factor_ee_deriv_e(context, &(factor_ee_deriv_e[0][0][0]),walk_num*4*elec_num);
 
 // check factor_ee_deriv_e
+// DELETE FROM HERE
+printf("%lf\n", factor_ee_deriv_e[0][0][0]);
+printf("%lf\n", factor_ee_deriv_e[0][1][0]);
+printf("%lf\n", factor_ee_deriv_e[0][2][0]);
+printf("%lf\n", factor_ee_deriv_e[0][3][0]);
+// TO HERE
 assert(fabs(factor_ee_deriv_e[0][0][0]-0.16364894652107934) < 1.e-12);
 assert(fabs(factor_ee_deriv_e[0][1][0]+0.6927548119830084 ) < 1.e-12);
 assert(fabs(factor_ee_deriv_e[0][2][0]-0.073267755223968  ) < 1.e-12);
