@@ -2184,12 +2184,12 @@ qmckl_exit_code qmckl_compute_factor_ee_deriv_e_hpc(
       const double* asymp_jasb,
       double* const factor_ee_deriv_e ) {
 
-  int ipar, ii;
-  double pow_ser_g[3];
-  double dx[4];
-  double x, spin_fact, y;
-  double den, invden, invden2, invden3, xinv;
-  double lap1, lap2, lap3, third;
+  int64_t ii;
+  double  pow_ser_g[3];
+  double  dx[4];
+  double  x, spin_fact, y;
+  double  den, invden, invden2, invden3, xinv;
+  double  lap1, lap2, lap3, third;
 
   if (context == QMCKL_NULL_CONTEXT) {
     return QMCKL_INVALID_CONTEXT;
@@ -2232,7 +2232,6 @@ qmckl_exit_code qmckl_compute_factor_ee_deriv_e_hpc(
         invden2     = invden * invden;
         invden3     = invden2 * invden;
         xinv        = 1.0 / (x + 1.0e-18);
-        ipar        = 0;
         
         dx[0] = ee_distance_rescaled_deriv_e[0 \
                                            + j * 4 + i * 4 * elec_num \
@@ -3004,7 +3003,7 @@ qmckl_exit_code qmckl_provide_factor_en_deriv_e(qmckl_context context)
     | ~factor_en_deriv_e~            | ~double[walk_num][4][elec_num]~           | out    | Electron-nucleus jastrow              |
 
     #+begin_src f90 :comments org :tangle (eval f) :noweb yes
-integer function qmckl_compute_factor_en_deriv_e_f( &
+integer function qmckl_compute_factor_en_deriv_e_doc_f( &
      context, walk_num, elec_num, nucl_num, type_nucl_num, &
      type_nucl_vector, aord_num, aord_vector, &
      en_distance_rescaled, en_distance_rescaled_deriv_e, factor_en_deriv_e) &
@@ -3102,11 +3101,59 @@ integer function qmckl_compute_factor_en_deriv_e_f( &
   end do
   end do
 
-end function qmckl_compute_factor_en_deriv_e_f
+end function qmckl_compute_factor_en_deriv_e_doc_f
+    #+end_src
+    
+#+begin_src c :tangle (eval c) :comments org :exports none
+    qmckl_exit_code qmckl_compute_factor_en_deriv_e_hpc (
+          const qmckl_context context,
+          const int64_t walk_num,
+          const int64_t elec_num,
+          const int64_t nucl_num,
+          const int64_t type_nucl_num,
+          const int64_t* type_nucl_vector,
+          const int64_t aord_num,
+          const double* aord_vector,
+          const double* en_distance_rescaled,
+          const double* en_distance_rescaled_deriv_e,
+          double* const factor_en_deriv_e ) {
+
+  return QMCKL_SUCCESS;
+          }
     #+end_src
 
 #   #+CALL: generate_c_header(table=qmckl_factor_en_deriv_e_args,rettyp=get_value("CRetType"),fname=get_value("Name"))
 
+    #+begin_src c :comments org :tangle (eval h_private_func) :noweb yes :exports none
+    qmckl_exit_code qmckl_compute_factor_en_deriv_e_doc (
+          const qmckl_context context,
+          const int64_t walk_num,
+          const int64_t elec_num,
+          const int64_t nucl_num,
+          const int64_t type_nucl_num,
+          const int64_t* type_nucl_vector,
+          const int64_t aord_num,
+          const double* aord_vector,
+          const double* en_distance_rescaled,
+          const double* en_distance_rescaled_deriv_e,
+          double* const factor_en_deriv_e );
+    #+end_src
+
+    #+begin_src c :comments org :tangle (eval h_private_func) :noweb yes :exports none
+    qmckl_exit_code qmckl_compute_factor_en_deriv_e_hpc (
+          const qmckl_context context,
+          const int64_t walk_num,
+          const int64_t elec_num,
+          const int64_t nucl_num,
+          const int64_t type_nucl_num,
+          const int64_t* type_nucl_vector,
+          const int64_t aord_num,
+          const double* aord_vector,
+          const double* en_distance_rescaled,
+          const double* en_distance_rescaled_deriv_e,
+          double* const factor_en_deriv_e );
+    #+end_src
+    
     #+begin_src c :comments org :tangle (eval h_private_func) :noweb yes :exports none
     qmckl_exit_code qmckl_compute_factor_en_deriv_e (
           const qmckl_context context,
@@ -3122,12 +3169,11 @@ end function qmckl_compute_factor_en_deriv_e_f
           double* const factor_en_deriv_e );
     #+end_src
 
-
-    #+CALL: generate_c_interface(table=qmckl_factor_en_deriv_e_args,rettyp=get_value("CRetType"),fname=get_value("Name"))
+    #+CALL: generate_c_interface(table=qmckl_factor_en_deriv_e_args,rettyp=get_value("CRetType"),fname="qmckl_compute_factor_en_deriv_e_doc")
 
     #+RESULTS:
     #+begin_src f90 :tangle (eval f) :comments org :exports none
-    integer(c_int32_t) function qmckl_compute_factor_en_deriv_e &
+    integer(c_int32_t) function qmckl_compute_factor_en_deriv_e_doc &
         (context, &
          walk_num, &
          elec_num, &
@@ -3156,8 +3202,8 @@ end function qmckl_compute_factor_en_deriv_e_f
       real    (c_double ) , intent(in)          :: en_distance_rescaled_deriv_e(elec_num,nucl_num,4,walk_num)
       real    (c_double ) , intent(out)         :: factor_en_deriv_e(elec_num,4,walk_num)
 
-      integer(c_int32_t), external :: qmckl_compute_factor_en_deriv_e_f
-      info = qmckl_compute_factor_en_deriv_e_f &
+      integer(c_int32_t), external :: qmckl_compute_factor_en_deriv_e_doc_f
+      info = qmckl_compute_factor_en_deriv_e_doc_f &
              (context, &
          walk_num, &
          elec_num, &
@@ -3170,7 +3216,29 @@ end function qmckl_compute_factor_en_deriv_e_f
          en_distance_rescaled_deriv_e, &
          factor_en_deriv_e)
 
-    end function qmckl_compute_factor_en_deriv_e
+    end function qmckl_compute_factor_en_deriv_e_doc
+    #+end_src
+
+    #+begin_src c :tangle (eval c) :comments org :exports none
+    qmckl_exit_code qmckl_compute_factor_en_deriv_e (
+          const qmckl_context context,
+          const int64_t walk_num,
+          const int64_t elec_num,
+          const int64_t nucl_num,
+          const int64_t type_nucl_num,
+          const int64_t* type_nucl_vector,
+          const int64_t aord_num,
+          const double* aord_vector,
+          const double* en_distance_rescaled,
+          const double* en_distance_rescaled_deriv_e,
+          double* const factor_en_deriv_e ) {
+
+  #ifdef HAVE_HPC
+  return qmckl_compute_factor_en_deriv_e_hpc(context, walk_num, elec_num, nucl_num,type_nucl_num, type_nucl_vector, aord_num, aord_vector, en_distance_rescaled, en_distance_rescaled_deriv_e, factor_en_deriv_e);
+  #else
+  return qmckl_compute_factor_en_deriv_e_doc(context, walk_num, elec_num, nucl_num,type_nucl_num, type_nucl_vector, aord_num, aord_vector, en_distance_rescaled, en_distance_rescaled_deriv_e, factor_en_deriv_e);
+  #endif
+}
     #+end_src
 
 *** Test
