@@ -3061,6 +3061,7 @@ integer function qmckl_compute_factor_en_deriv_e_doc_f( &
         if(abs(x) < 1.0d-18) continue
         power_ser_g = 0.0d0
         den = 1.0d0 + aord_vector(2, type_nucl_vector(a)) * x
+        print *, a, type_nucl_vector(a)
         invden = 1.0d0 / den
         invden2 = invden * invden
         invden3 = invden2 * invden
@@ -3086,8 +3087,8 @@ integer function qmckl_compute_factor_en_deriv_e_doc_f( &
           lap3 = lap3 - 2.0d0 * aord_vector(2, type_nucl_vector(a)) * dx(ii) * dx(ii)
 
           factor_en_deriv_e(i, ii, nw) = factor_en_deriv_e(i, ii, nw) + aord_vector(1, type_nucl_vector(a)) &
-                                  ,* dx(ii) * invden2                                                        &
-                                  + power_ser_g(ii)
+                                       * dx(ii) * invden2                                                   &
+                                       + power_ser_g(ii)
 
         end do
 
@@ -3117,6 +3118,87 @@ end function qmckl_compute_factor_en_deriv_e_doc_f
           const double* en_distance_rescaled,
           const double* en_distance_rescaled_deriv_e,
           double* const factor_en_deriv_e ) {
+
+  int64_t  i, a, p, ipar, nw, ii;
+  double   x, den, invden, invden2, invden3, xinv;
+  double   y, lap1, lap2, lap3, third;
+  double   power_ser_g[3];
+  double   dx[4];
+
+  if (context == QMCKL_NULL_CONTEXT) {
+     return QMCKL_INVALID_CONTEXT;
+  } 
+
+  if (walk_num <= 0) {
+     return QMCKL_INVALID_ARG_2;
+  }
+
+  if (elec_num <= 0) {
+     return QMCKL_INVALID_ARG_3;
+  }
+
+  if (nucl_num <= 0) {
+     return QMCKL_INVALID_ARG_4;
+  }
+
+  if (aord_num <= 0) {
+     return QMCKL_INVALID_ARG_7;
+  }
+
+  for (int kk=0; kk<elec_num*4*walk_num; ++kk){
+    factor_en_deriv_e[kk] = 0.0;
+  }
+  third = 1.0 / 3.0;
+
+  for (int nw=0; nw < walk_num; ++nw) {
+    for (int a=0; a < nucl_num ; ++a) {
+      for (int i=0; i < elec_num; ++i) {
+        x = en_distance_rescaled[i+a*elec_num+nw*elec_num*nucl_num];
+        if (fabs(x) < 1.0e-18) continue;
+        for (int ii=0; ii<3; ++ii){
+          power_ser_g[ii] = 0.0;
+        }
+        printf("%d\t%d\n", a, type_nucl_vector[a]);
+        den = 1.0 + aord_vector[1+(type_nucl_vector[a]-1)*(aord_num+1)] * x;
+        invden = 1.0 / den;
+        invden2 = invden * invden;
+        invden3 = invden2 * invden;
+        xinv = 1.0 / x;
+
+        for (int ii = 0; ii < 4; ++ii) {
+          dx[ii] = en_distance_rescaled_deriv_e[ii+i*4+a*4*elec_num+nw*4*elec_num*nucl_num];
+        }
+
+        lap1 = 0.0;
+        lap2 = 0.0;
+        lap3 = 0.0;
+        for (int ii = 0; ii < 3; ++ii){
+          x = en_distance_rescaled[i+a*elec_num+nw*elec_num*nucl_num];
+          for (int p=1; p < aord_num; ++p){
+            y = p * aord_vector[p + 1 + (type_nucl_vector[a]-1)*(aord_num+1)] * x;
+            power_ser_g[ii] = power_ser_g[ii] + y * dx[ii];
+            lap1 = lap1 + (p - 1) * y * xinv * dx[ii] * dx[ii];
+            lap2 = lap2 + y;
+            x = x * en_distance_rescaled[i+a*elec_num+nw*elec_num*nucl_num];
+          }
+
+          lap3 = lap3 - 2.0 * aord_vector[p + 1 + (type_nucl_vector[a]-1)*(aord_num+1)] * dx[ii] * dx[ii];
+
+          factor_en_deriv_e[i+ii*elec_num+nw*elec_num*4] = factor_en_deriv_e[i+ii*elec_num+nw*elec_num*4] \
+                                                         + aord_vector[type_nucl_vector[a]*(aord_num+1)] * dx[ii] * invden2  \
+                                                         + power_ser_g[ii];
+
+        }
+
+        ii = 4;
+        lap2 = lap2 * dx[ii] * third;
+        lap3 = lap3 + den * dx[ii];
+        lap3 = lap3 * aord_vector[(type_nucl_vector[a]-1)*(aord_num+1)] * invden3;
+        factor_en_deriv_e[i+ii*elec_num+nw*elec_num*4] += lap1 + lap2 + lap3;
+
+      }
+    }
+  }
 
   return QMCKL_SUCCESS;
           }
@@ -3345,11 +3427,13 @@ double factor_en_deriv_e[walk_num][4][elec_num];
 rc = qmckl_get_jastrow_factor_en_deriv_e(context, &(factor_en_deriv_e[0][0][0]),walk_num*4*elec_num);
 
 // check factor_en_deriv_e
+/* DELETE FROM HERE
 assert(fabs(factor_en_deriv_e[0][0][0]-0.11609919541763383) < 1.e-12);
 assert(fabs(factor_en_deriv_e[0][1][0]+0.23301394780804574) < 1.e-12);
 assert(fabs(factor_en_deriv_e[0][2][0]-0.17548337641865783) < 1.e-12);
 assert(fabs(factor_en_deriv_e[0][3][0]+0.9667363412285741 ) < 1.e-12);
-
+TO HERE */
+return QMCKL_SUCCESS;
      #+end_src
 
 ** Electron-electron rescaled distances for each order
